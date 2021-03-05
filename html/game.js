@@ -199,6 +199,7 @@ function onGamePhaseMessage(message) {
             onGamePhase(gamePhase);
             break;
         case "dealCards":
+            viewerStacks = message.viewerStackList.viewerStacks;
             updateAttendeeList();
             updateAttendeeStacks(undefined);
             sound.deal.play();
@@ -207,7 +208,13 @@ function onGamePhaseMessage(message) {
                 onMessageBuffer();
             });
             break;
+        case "finish31OnDeal":
+            updateAttendeeStacks(message);
+            sound.finish31OnDeal.play();
+            onGamePhase(gamePhase);
+            break;
         case "waitForAttendees":
+            viewerStacks = [0];
             updateAttendeeList();
             onGamePhase(gamePhase);
             break;
@@ -216,6 +223,7 @@ function onGamePhaseMessage(message) {
             onGamePhase(gamePhase);
             break;
         case "moveResult":
+            viewerStacks = message.viewerStackList.viewerStacks;
             onMoveResult(message.moveResult);
             break;
         case "discover":
@@ -230,7 +238,7 @@ function onGamePhase(phase) {
     var isWaitForAttendees = (phase === "waitForAttendees");
     var meIsMover = (mover === myName);
     var meIsShuffling = (phase === "shuffle" && meIsMover);
-    var meIsDealing = (phase === "dealCards" && meIsMover);
+    var meIsDealing = ((phase === "dealCards" || phase === "finish31OnDeal") && meIsMover);
     var meIsMoverInGame = (phase === "waitForPlayerMove" && meIsMover);
     var isActive = isAttendee();
     var isValidSelection = swapSelection.myStackId >= 0 && swapSelection.gameStackId >= 0;
@@ -365,7 +373,6 @@ function onMoveResult(result) {
         var readyFunction = function () {
             try {
                 gameStack = result.gameStack.cards;
-                viewerStacks = result.viewerStackList.viewerStacks;
                 log("'" + mover + "': " + result.move);
                 logStack("Game Stack", gameStack);
                 logStack("Player Stack", playerStack);
@@ -523,8 +530,9 @@ function animateDealCards(readyFunction) {
     for (var i = 0; i < cards.length; i++) {
         if (i === cards.length - 1) {
             animateDealSingleCard(cards[i], pos.top, pos.left, props[i], i * delay, readyFunction);
+        } else {
+            animateDealSingleCard(cards[i], pos.top, pos.left, props[i], i * delay);
         }
-        animateDealSingleCard(cards[i], pos.top, pos.left, props[i], i * delay);
     }
 }
 
@@ -1138,8 +1146,14 @@ function emptyAllStackDesks() {
 function updateAttendeeStacks(message) {
     try {
         var discoverStacks = undefined;
-        if (message !== undefined && gamePhase === "discover") {
-            discoverStacks = (message.action === "gameState") ? message.discoverStacks : message.discoverMessage.playerStacks;
+        var finish31OnDealMessage = undefined;
+        if (message !== undefined) {
+            if (gamePhase === "discover") {
+                discoverStacks = (message.action === "gameState") ? message.discoverStacks : message.discoverMessage.playerStacks;
+            }
+            if (gamePhase === "finish31OnDeal") {
+                finish31OnDealMessage = message.finish31OnDealMessage; //(message.action === "gameState") ? message.finish31OnDealMessage : message.discoverMessage.finish31OnDealMessage;
+            }
         }
         var id = getMyAllAttendeeId();
         var deskId = getMyAllAttendeeId();
@@ -1154,6 +1168,9 @@ function updateAttendeeStacks(message) {
                     updateCardStack(desk, isAttendee ? discoverStacks[getAttendeeIdByName(playerName)].cards : undefined);
                 } else {
                     var viewerStack = getViewerStack(playerName);
+                    if (finish31OnDealMessage !== undefined && finish31OnDealMessage.finisher === playerName) {
+                        viewerStack = finish31OnDealMessage.finishStack.cards;
+                    }
                     updateCardStack(desk, isAttendee
                             ? (viewerStack !== undefined
                                     ? viewerStack
@@ -1235,9 +1252,11 @@ function updateCardStack(desk, cards) {
 }
 
 function getViewerStack(name) {
-    for (var i = 0; i < viewerStacks.length; i++) {
-        if (viewerStacks[i].name === name) {
-            return viewerStacks[i].cards;
+    if (viewerStacks !== undefined) {
+        for (var i = 0; i < viewerStacks.length; i++) {
+            if (viewerStacks[i].name === name) {
+                return viewerStacks[i].cards;
+            }
         }
     }
     return undefined;

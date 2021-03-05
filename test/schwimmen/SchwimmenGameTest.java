@@ -4,6 +4,7 @@ import cardgame.Card;
 import com.google.gson.Gson;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import org.apache.logging.log4j.Level;
@@ -43,6 +44,7 @@ public class SchwimmenGameTest {
     private static final Logger LOGGER = LogManager.getLogger(SchwimmenGameTest.class);
 
     private List<Card> gameStack;
+    private List<Card> dealerStack;
     private SchwimmenGame game;
     private SchwimmenPlayer player1;
     private SchwimmenPlayer player2;
@@ -59,6 +61,7 @@ public class SchwimmenGameTest {
     private TestSocket socket3;
     private TestSocket socket4;
     private TestSocket socket5;
+    private List<List<Card>> dealCardStacks;
     private final String name1 = "Player 1";
     private final String name2 = "Player 2";
     private final String name3 = "Player 3";
@@ -69,7 +72,10 @@ public class SchwimmenGameTest {
     @Before
     public void setUp() {
         gameStack = Collections.synchronizedList(new ArrayList<>());
-        game = new SchwimmenGame(gameStack, "");
+        dealerStack = Collections.synchronizedList(new ArrayList<>());
+        dealCardStacks = Arrays.asList(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+        dealCardStacks.forEach(stack -> make25(stack));
+        game = new SchwimmenGame(gameStack, dealerStack, "", new CardDealServiceImpl());
         session1 = Mockito.mock(Session.class);
         session2 = Mockito.mock(Session.class);
         session3 = Mockito.mock(Session.class);
@@ -122,6 +128,80 @@ public class SchwimmenGameTest {
             LOGGER.info("FinishSound: " + cursor);
         }
         assertEquals(game.getFinishSoundCount(), ids.size());
+    }
+
+    @Test
+    public void test31onDeal_player_keep() {
+        startWith3Players();
+        make30(dealCardStacks.get(1));
+        make31(dealCardStacks.get(2));
+        make25(dealCardStacks.get(3));
+        socket1.onText("{\"action\": \"dealCards\"}");
+        socket1.onText("{\"action\": \"selectStack\", \"stack\": \"keep\"}");
+        assertEquals(3, player1.getGameTokens());
+        assertEquals(3, player2.getGameTokens());
+        assertEquals(2, player3.getGameTokens());
+    }
+
+    @Test
+    public void test31onDeal_player_change() {
+        startWith3Players();
+        make25(dealCardStacks.get(0));
+        make7_8_9(dealCardStacks.get(1));
+        make31(dealCardStacks.get(2));
+        make30(dealCardStacks.get(3));
+        socket1.onText("{\"action\": \"dealCards\"}");
+        socket1.onText("{\"action\": \"selectStack\", \"stack\": \"change\"}");
+        assertEquals(2, player1.getGameTokens());
+        assertEquals(3, player2.getGameTokens());
+        assertEquals(3, player3.getGameTokens());
+    }
+
+    @Test
+    public void test31onDeal_dealer() {
+        startWith2Players();
+        make31(dealCardStacks.get(1));
+        socket1.onText("{\"action\": \"dealCards\"}");
+        assertEquals(3, player1.getGameTokens());
+        assertEquals(2, player2.getGameTokens());
+    }
+
+    @Test
+    public void test31onDealChangedStack() {
+        startWith2Players();
+        make31(dealCardStacks.get(0));
+        socket1.onText("{\"action\": \"dealCards\"}");
+        socket1.onText("{\"action\": \"selectStack\", \"stack\": \"change\"}");
+        assertEquals(3, player1.getGameTokens());
+        assertEquals(2, player2.getGameTokens());
+    }
+
+    @Test
+    public void testFireonDealChangedStack() {
+        startWith2Players();
+        makeFire(dealCardStacks.get(0));
+        socket1.onText("{\"action\": \"dealCards\"}");
+        socket1.onText("{\"action\": \"selectStack\", \"stack\": \"change\"}");
+        assertEquals(3, player1.getGameTokens());
+        assertEquals(2, player2.getGameTokens());
+    }
+
+    @Test
+    public void testFireOnDeal_dealer() {
+        startWith2Players();
+        makeFire(dealCardStacks.get(1));
+        socket1.onText("{\"action\": \"dealCards\"}");
+        assertEquals(3, player1.getGameTokens());
+        assertEquals(2, player2.getGameTokens());
+    }
+
+    @Test
+    public void testFireOnDeal_player() {
+        startWith2Players();
+        makeFire(dealCardStacks.get(2));
+        socket1.onText("{\"action\": \"dealCards\"}");
+        assertEquals(2, player1.getGameTokens());
+        assertEquals(3, player2.getGameTokens());
     }
 
     @Test
@@ -678,7 +758,7 @@ public class SchwimmenGameTest {
         swapCard(socket2);
         assertFalse(game.isChangeStackAllowed(player1));
         assertFalse(game.isChangeStackAllowed(player2));
-        
+
         make7_8_9(gameStack);
         assertTrue(game.isChangeStackAllowed(player1));
         assertFalse(game.isChangeStackAllowed(player2));
@@ -768,6 +848,29 @@ public class SchwimmenGameTest {
     }
 
     @Test
+    public void testAskForCardShow_response_doubleclick() {
+        startWith5Players();
+        game.getRound().leavers.add(player1);
+        game.removeAttendee(player1);
+        Runnable r = () -> {
+            socket2.onText("{\"action\": \"askForCardShow\", \"target\": \"Player 1\"}");
+            AskForCardShow question = gson.fromJson(socket1.lastMessage(), AskForCardShow.class);
+            socket1.onText("{\"action\": \"askForCardShowResponse\", \"hashCode\": \"" + question.hashCode + "\", \"value\": \"true\"}");
+        };
+        Thread thread1 = new Thread(r);
+        Thread thread2 = new Thread(r);
+        thread1.start();
+        thread2.start();
+        try {
+            while (thread2.isAlive() && thread1.isAlive()) {
+                Thread.sleep(1000);
+            }
+        } catch (InterruptedException ex) {
+            System.out.println(ex);
+        }
+    }
+
+    @Test
     public void testAskForCardShow_response_yes() {
         startWith5Players();
         game.getRound().leavers.add(player1);
@@ -786,9 +889,9 @@ public class SchwimmenGameTest {
         assertEquals(messageCount + 2, socket2.messageBuff.size());
         ChatMessage chatMessage = gson.fromJson(socket1.lastMessage(), ChatMessage.class);
         assertEquals(name2 + " zeigt " + name1 + " die Karten.", chatMessage.text);
-        List<SchwimmenPlayer> viewerList = game.getViewerMap().get(player2);
+        Collection<SchwimmenPlayer> viewerList = game.getViewerMap().get(player2);
         assertEquals(1, viewerList.size());
-        assertEquals(player1, viewerList.get(0));
+        assertEquals(player1, viewerList.iterator().next());
     }
 
     @Test
@@ -892,9 +995,9 @@ public class SchwimmenGameTest {
         assertEquals(messageCount + 3, socket1.messageBuff.size());
         ChatMessage chatMessage = gson.fromJson(socket1.lastMessage(), ChatMessage.class);
         assertEquals(name1 + " schaut bei " + name2 + " in die Karten.", chatMessage.text);
-        List<SchwimmenPlayer> viewerList = game.getViewerMap().get(player2);
+        Collection<SchwimmenPlayer> viewerList = game.getViewerMap().get(player2);
         assertEquals(1, viewerList.size());
-        assertEquals(player1, viewerList.get(0));
+        assertEquals(player1, viewerList.iterator().next());
     }
 
     @Test
@@ -916,6 +1019,30 @@ public class SchwimmenGameTest {
         assertEquals(messageCount + 1, socket1.messageBuff.size());
         ChatMessage chatMessage = gson.fromJson(socket1.lastMessage(), ChatMessage.class);
         assertEquals(name2 + " l&auml;sst " + name1 + " nicht in die Karten schauen.", chatMessage.text);
+    }
+
+    @Test
+    public void testAskForCardView_response_doubleclick() {
+        startWith5Players();
+        game.getRound().leavers.add(player1);
+        game.removeAttendee(player1);
+        Runnable r = () -> {
+            socket1.onText("{\"action\": \"askForCardView\", \"target\": \"Player 2\"}");
+            AskForCardShow question = gson.fromJson(socket1.lastMessage(), AskForCardShow.class);
+            socket2.onText("{\"action\": \"askForCardViewResponse\", \"hashCode\": \"" + question.hashCode + "\", \"value\": \"true\"}");
+        };
+        Thread thread1 = new Thread(r);
+        Thread thread2 = new Thread(r);
+
+        thread1.start();
+        thread2.start();
+        try {
+            while (thread2.isAlive() && thread1.isAlive()) {
+                Thread.sleep(1000);
+            }
+        } catch (InterruptedException ex) {
+            System.out.println(ex);
+        }
     }
 
     @Test
@@ -997,7 +1124,6 @@ public class SchwimmenGameTest {
     }
 
     @Test
-
     public void testStopCardShowing_fail_invalidPlayer() {
         startWith5Players();
         game.getRound().leavers.add(player1);
@@ -1062,6 +1188,31 @@ public class SchwimmenGameTest {
         assertEquals("gamePhase", stopResult.action);
         assertEquals("waitForAttendees", stopResult.phase);
         assertEquals(player1.getName(), stopResult.actor);
+    }
+
+    // Debug the Problem that the game discovered automatically when the last 
+    // player in a knocked round changed 789
+    @Test
+    public void testNewCardOn789_knocked() {
+        game.setGameRuleEnabled(GAMERULE.newCardsOn789, true);
+        startWith3Players();
+        make7_8_9(player1.getStack());
+        make7_8_9(player2.getStack());
+        make7_8_9(player3.getStack());
+        socket1.onText("{\"action\": \"dealCards\"}");
+        socket1.onText("{\"action\": \"selectStack\", \"stack\": \"keep\"}");
+        swapCard(socket2);
+        swapCard(socket3);
+        socket1.onText("{\"action\": \"knock\"}"); // klopft
+        swapCard(socket2);
+        make7_8_9(gameStack);
+        assertTrue(game.isChangeStackAllowed(player3));
+        socket3.onText("{\"action\": \"changeStack\"}"); // neue Karten bei 7/8/9
+        GamePhase gamePhase = gson.fromJson(socket1.lastMessage(), GamePhase.class);
+        assertEquals("waitForPlayerMove", gamePhase.phase); // player 3 must still be the mover
+        pass(socket3);
+        gamePhase = gson.fromJson(socket1.lastMessage(), GamePhase.class);
+        assertEquals("discover", gamePhase.phase);
     }
 
     private void make21(List<Card> cards) {
@@ -1192,6 +1343,25 @@ public class SchwimmenGameTest {
 
         public boolean receivedMessage(String message) {
             return messageBuff.stream().anyMatch((msg) -> (message.equals(msg)));
+        }
+    }
+
+    private class CardDealServiceImpl implements SchwimmenGame.CardDealService {
+
+        @Override
+        public void dealCards(SchwimmenGame game) {
+            dealerStack.clear();
+            player1.getStack().clear();
+            player2.getStack().clear();
+            player3.getStack().clear();
+            player4.getStack().clear();
+            player5.getStack().clear();
+            dealerStack.addAll(dealCardStacks.get(0));
+            player1.getStack().addAll(dealCardStacks.get(1));
+            player2.getStack().addAll(dealCardStacks.get(2));
+            player3.getStack().addAll(dealCardStacks.get(3));
+            player4.getStack().addAll(dealCardStacks.get(4));
+            player5.getStack().addAll(dealCardStacks.get(5));
         }
     }
 

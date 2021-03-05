@@ -61,10 +61,12 @@ public class GameChangeListener implements PropertyChangeListener {
     }
 
     private GamePhase getMessageForPhase(GAMEPHASE phase) {
-        SchwimmenPlayer actor = getActorForGamePhase(phase);
+        SchwimmenPlayer actor = game.getMover();
         switch (phase) {
             case discover:
                 return new GamePhase(game.getDiscoverMessage(), actor);
+            case finish31OnDeal:
+                return new GamePhase(game.getFinish31OnDealMessage(), actor);
             case moveResult:
                 return new GamePhase(game.getPlayertMove(), actor);
             case waitForPlayerMove:
@@ -76,17 +78,13 @@ public class GameChangeListener implements PropertyChangeListener {
         }
     }
 
-    private SchwimmenPlayer getActorForGamePhase(GAMEPHASE phase) {
-        return game.getMover();
-    }
-
     private void processGamePhase(PropertyChangeEvent evt) {
         GAMEPHASE phase = (GAMEPHASE) evt.getNewValue();
-        if (phase == GAMEPHASE.moveResult) {
+        if (phase == GAMEPHASE.moveResult || phase == GAMEPHASE.dealCards) {
             // send an individual message to the clients which include the viewer stacks
             game.getPlayerList().forEach(p -> {
                 GamePhase message = getMessageForPhase(phase);
-                message.moveResult.viewerStackList = game.getViewerStackList(p);
+                message.viewerStackList = game.getViewerStackList(p);
                 p.getSocket().sendString(gson.toJson(message));
             });
 
