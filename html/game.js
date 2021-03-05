@@ -882,8 +882,6 @@ function updateDiscoverMessageBox(message) {
             }
             msgText += discoverMsg.payers.length > 1 ? " bezahlen" : " bezahlt";
         }
-    } else {
-        msgText += "<br>Nochmal Dusel gehabt, keiner muss bezahlen!";
     }
     if (discoverMsg.leavers !== undefined) {
         msgText += "<br>";
@@ -896,8 +894,9 @@ function updateDiscoverMessageBox(message) {
             }
             msgText += discoverMsg.leavers.length > 1 ? " scheiden aus" : " scheidet aus";
         }
-    } else {
-        msgText += "<br>Spannend, es geht weiter, keiner scheidet aus!";
+    }
+    if (discoverMsg.payers == undefined && discoverMsg.leavers == undefined) {
+        msgText += "<br>Unentschieden, es folgt noch eine Runde!";
     }
     $("#discoverMessage").html(msgText);
 }
