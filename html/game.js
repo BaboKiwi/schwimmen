@@ -347,8 +347,12 @@ function onDiscover(gamePhaseMessage) {
             });
             updateAttendeeList();
             updateAttendeeStacks(gamePhaseMessage);
-            $("#nextRoundBtn").prop("disabled", false);
+        // disabled here to cover empty payers/leavers when knock rules are disabled
+        // empty payers/leavers happens, when all attendees have equal card values when swimming
+        //    $("#nextRoundBtn").prop("disabled", false);
         }
+        // Button is activated here, outside of if-clause
+        $("#nextRoundBtn").prop("disabled", false);
     }
     , 3000);
 }
@@ -870,6 +874,8 @@ function updateDiscoverMessageBox(message) {
             }
             msgText += discoverMsg.payers.length > 1 ? " bezahlen" : " bezahlt";
         }
+    } else {
+        msgText += "<br>Nochmal Dusel gehabt, keiner muss bezahlen!";
     }
     if (discoverMsg.leavers !== undefined) {
         msgText += "<br>";
@@ -882,6 +888,8 @@ function updateDiscoverMessageBox(message) {
             }
             msgText += discoverMsg.leavers.length > 1 ? " scheiden aus" : " scheidet aus";
         }
+    } else {
+        msgText += "<br>Spannend, es geht weiter, keiner scheidet aus!";
     }
     $("#discoverMessage").html(msgText);
 }
