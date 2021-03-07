@@ -21,9 +21,9 @@ This project is for private use only. Each publication must clarify the license 
 ## Setup:
 1. Download the software
 2. Enter the players with user name and password in the users.properties file.
-3. Enter the name of the Jitsi conference in the settings.properties file. The server port can also be changed here. The default setting is 8080.
+3. Enter the name of the Jitsi conference in the settings.properties file. The server port can also be changed here. The default setting is 8888.
 4. Open a command line window and start the server by executing: java -jar Schwimmen.jar
 
-To start the client open the page in a browser (e.g. http://localhost:8080).
+To start the client open the page in a browser (e.g. http://localhost:8888).
 
 Set up a DynDns service to make the server accessible from the Internet.
