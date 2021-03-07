@@ -291,6 +291,7 @@ public class SchwimmenGameTest {
 
     @Test
     public void testGetDiscoverMessage_onSingleKnockerFinish_badKnock() {
+        game.setGameRuleEnabled(GAMERULE.Knocking, true);
         startWith3Players();
         socket1.onText("{\"action\": \"dealCards\"}");
         make25(player1.getStack());
@@ -350,6 +351,7 @@ public class SchwimmenGameTest {
 
     @Test
     public void testGetDiscoverMessage_onSingleKnockerFinish_equalPoints() {
+        game.setGameRuleEnabled(GAMERULE.Knocking, true);
         startWith3Players();
         socket1.onText("{\"action\": \"dealCards\"}");
         make25(player1.getStack());
@@ -382,6 +384,7 @@ public class SchwimmenGameTest {
 
     @Test
     public void testGetDiscoverMessage_onDoubleKnockerFinish_equalPoints() {
+        game.setGameRuleEnabled(GAMERULE.Knocking, true);
         startWith3Players();
         socket1.onText("{\"action\": \"dealCards\"}");
         make25(player1.getStack());
