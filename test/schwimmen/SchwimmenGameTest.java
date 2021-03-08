@@ -456,8 +456,7 @@ public class SchwimmenGameTest {
         pass(socket3);
         DiscoverMessage message = game.getDiscoverMessage();  // spielende erreicht
 
-        // kein Spieler zahlt bei Punktgleichheit.
-        // kein Spieler steigt aus, da alle schwimmen
+        // kein Spieler zahlt oder steigt aus, da alle die gleiche Punktzahl haben UND schwimmen
         assertNull(message.finisher);
         assertEquals(0f, message.finisherScore, 0f);
         assertNull(message.payers);
